@@ -1,0 +1,42 @@
+General
+
+Request URL:https://portail.dgfip.finances.gouv.fr/messagerie_nomade/
+Request Method:GET
+Status Code:302 Found
+Remote Address:145.242.11.9:443
+
+Response Headers
+
+Cache-Control:private, no-cache, no-store, must-revalidate, post-check=0, pre-check=0
+Connection:close
+Content-Encoding:gzip
+Content-Length:20
+Content-Type:text/html; charset=UTF-8
+Date:Sun, 30 Oct 2016 09:06:19 GMT
+Expires:Sun, 30 Oct 2016 09:06:19 GMT
+Last-Modified:Sun, 30 Oct 2016 09:06:19 GMT
+Location:./?_task=mail
+Pragma:no-cache
+Server:Apache
+/* theses cookies are NOT reused in the following query */
+Set-Cookie:roundcube_sessid=1111111111111111111111111a; path=/; secure; HttpOnly
+Set-Cookie:roundcube_sessauth=-del-; expires=Sun, 29-Oct-2016 18:16:39 GMT; path=/; secure; httponly
+/* theses cookies are reused afterwards */
+Set-Cookie:roundcube_sessid=2bbbbbbbbbbbbbbbbbbbbbbbbb; path=/; secure; HttpOnly
+Set-Cookie:roundcube_sessauth=3cccccccccccccccccccccccccccccccccccccccc; path=/; secure; httponly
+Vary:Accept-Encoding,User-Agent
+Via:1.1 portail.dgfip.finances.gouv.fr
+X-DNS-Prefetch-Control:off
+X-Powered-By:PHP/5.3.13
+
+Request Headers
+
+Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+Accept-Encoding:gzip, deflate, sdch, br
+Accept-Language:fr-FR,fr;q=0.8,en-US;q=0.6,en;q=0.4
+Connection:keep-alive
+Cookie:MNEA=2faaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; menu=toto.tutu
+Host:portail.dgfip.finances.gouv.fr
+Referer:https://portail.dgfip.finances.gouv.fr/menu/menuIAM.pl
+Upgrade-Insecure-Requests:1
+User-Agent:Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/53.0.2785.143 Chrome/53.0.2785.143 Safari/537.36

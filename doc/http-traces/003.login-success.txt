@@ -1,0 +1,39 @@
+General
+
+Request URL:https://portail.dgfip.finances.gouv.fr/portail/accueilIAM.pl
+Request Method:POST
+Status Code:302 Found
+Remote Address:145.242.11.9:443
+
+Response Headers
+
+Connection:close
+Content-Length:319
+Content-Type:text/html; charset=iso-8859-1
+Date:Sun, 30 Oct 2016 08:43:49 GMT
+Location:https://portail.dgfip.finances.gouv.fr/menu/menuIAM.pl
+Server:Apache
+Set-Cookie:MNEA=2faaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; domain=.dgfip.finances.gouv.fr; path=/
+
+Request Headers
+
+Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+Accept-Encoding:gzip, deflate, br
+Accept-Language:fr-FR,fr;q=0.8,en-US;q=0.6,en;q=0.4
+Cache-Control:max-age=0
+Connection:keep-alive
+Content-Length:60
+Content-Type:application/x-www-form-urlencoded
+Cookie:essai=cookie
+Host:portail.dgfip.finances.gouv.fr
+Origin:https://portail.dgfip.finances.gouv.fr
+Referer:https://portail.dgfip.finances.gouv.fr/portail/accueilIAM.pl
+Upgrade-Insecure-Requests:1
+User-Agent:Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/53.0.2785.143 Chrome/53.0.2785.143 Safari/537.36
+
+Form Data
+
+identifiant:toto
+secret:titi
+apply:Connexion
+
