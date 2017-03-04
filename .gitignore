@@ -42,3 +42,6 @@ captures/
 # Python venv
 src/venv
 src/__pycache__
+
+# certificate
+*.pem
