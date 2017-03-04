@@ -3,6 +3,7 @@ import logging
 import selectors
 import signal
 import socket
+import ssl
 
 def signal_handler(signum, frame):
     logging.info("signal received, notifying end of application")
@@ -23,22 +24,31 @@ class Main:
         # arguments
         parser = argparse.ArgumentParser()
         parser.add_argument('--listen-port',
-            metavar='port',
+            metavar='PORT',
             help="listen on this TCP port",
             type=int,
             default=993)
         parser.add_argument('--listen-ipv4',
-            metavar='ipv4',
+            metavar='IPV4',
             help="listen on this IPv4 address",
             default="127.0.0.1")
         parser.add_argument('--listen-ipv6',
-            metavar='ipv6',
+            metavar='IPV6',
             help="listen on this IPv6 address",
             default="::1")
         parser.add_argument('--max-wait-conn',
-            metavar='nwc',
+            metavar='NWC',
             help="maximum allowed connections waiting",
             default=50)
+        parser.add_argument('--ssl-ciphers', # TODO: UNTESTED !
+            help="OpenSSL cipher string defining allowed cipher list",
+            default=None)
+        parser.add_argument('--ssl-pem-key',
+            help="SSL/TLS key file (PEM format)",
+            required=True)
+        parser.add_argument('--ssl-pem-cert',
+            help="SSL/TLS certificate file (PEM format)",
+            required=True)
         Main.Arguments = parser.parse_args()
         logging.debug("Arguments: {0}".format(Main.Arguments))
 
@@ -56,9 +66,16 @@ class Main:
     def accept_incoming_connection(self, fileobj, mask):
         logging.debug("accepting incoming connection on socket {0}".format(fileobj))
         client_sock, client_addr = fileobj.accept()
-        logging.debug("client socket {0} connected from {1} using source port {2}".format(client_sock, *client_addr))
-        client_sock.shutdown(socket.SHUT_RDWR)
-        client_sock.close()
+        logging.info("client socket {0} connected from {1} using source port {2}".format(client_sock.fileno(), *client_addr))
+        ssl_client_sock = ssl.wrap_socket(client_sock,
+            keyfile=Main.Arguments.ssl_pem_key,
+            certfile=Main.Arguments.ssl_pem_cert,
+            server_side=True,
+            cert_reqs=ssl.CERT_NONE,
+            ciphers=Main.Arguments.ssl_ciphers)
+        logging.info("client socket wrapped as SSL socket {0} using version {1}, cipher {2} with {3} secret bits, and compression={4}".format(ssl_client_sock.fileno(), ssl_client_sock.version(), ssl_client_sock.cipher()[0], ssl_client_sock.cipher()[2], ssl_client_sock.compression()))
+        ssl_client_sock.shutdown(socket.SHUT_RDWR)
+        ssl_client_sock.close()
         logging.debug("client connection closed")
 
     def run(self):
@@ -67,13 +84,13 @@ class Main:
         if Main.Arguments.listen_ipv4:
             self.listen_sock_v4 = self.create_listen_socket(socket.AF_INET, Main.Arguments.listen_ipv4)
             logging.debug("listening ipv4 socket is {0}".format(self.listen_sock_v4))
-            # self.listen_sock_v4.settimeout(False)
-            # logging.debug("listening ipv4 socket set to non-blocking")
+            self.listen_sock_v4.settimeout(False)
+            logging.debug("listening ipv4 socket set to non-blocking")
         if Main.Arguments.listen_ipv6:
             self.listen_sock_v6 = self.create_listen_socket(socket.AF_INET6, Main.Arguments.listen_ipv6)
             logging.debug("listening ipv6 socket is {0}".format(self.listen_sock_v6))
-            # self.listen_sock_v6.settimeout(False)
-            # logging.debug("listening ipv6 socket set to non-blocking")
+            self.listen_sock_v6.settimeout(False)
+            logging.debug("listening ipv6 socket set to non-blocking")
         if not self.listen_sock_v4 and not self.listen_sock_v6:
             raise Exception("No listening socket created")
         # setup selector
