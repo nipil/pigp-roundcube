@@ -41,4 +41,4 @@ captures/
 
 # Python venv
 src/venv
-
+src/__pycache__
