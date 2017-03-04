@@ -4,6 +4,9 @@ import selectors
 import signal
 import socket
 import ssl
+import threading
+
+import imap
 
 def signal_handler(signum, frame):
     logging.info("signal received, notifying end of application")
@@ -15,6 +18,8 @@ class Main:
         # variables
         Main.RequestExit = False
         Main.Arguments = None
+        Main.ImapThreads = []
+        Main.ImapThreadsMutex = threading.Lock()
         self.listen_sock_v4 = None
         self.listen_sock_v6 = None
         self.listen_selector = None
@@ -63,24 +68,7 @@ class Main:
         sock.listen(Main.Arguments.max_wait_conn)
         return sock
 
-    def accept_incoming_connection(self, fileobj, mask):
-        logging.debug("accepting incoming connection on socket {0}".format(fileobj))
-        client_sock, client_addr = fileobj.accept()
-        logging.info("client socket {0} connected from {1} using source port {2}".format(client_sock.fileno(), *client_addr))
-        ssl_client_sock = ssl.wrap_socket(client_sock,
-            keyfile=Main.Arguments.ssl_pem_key,
-            certfile=Main.Arguments.ssl_pem_cert,
-            server_side=True,
-            cert_reqs=ssl.CERT_NONE,
-            ciphers=Main.Arguments.ssl_ciphers)
-        logging.info("client socket wrapped as SSL socket {0} using version {1}, cipher {2} with {3} secret bits, and compression={4}".format(ssl_client_sock.fileno(), ssl_client_sock.version(), ssl_client_sock.cipher()[0], ssl_client_sock.cipher()[2], ssl_client_sock.compression()))
-        ssl_client_sock.shutdown(socket.SHUT_RDWR)
-        ssl_client_sock.close()
-        logging.debug("client connection closed")
-
-    def run(self):
-        logging.info("starting applicaiton")
-        # listen sockets
+    def create_listen_sockets(self):
         if Main.Arguments.listen_ipv4:
             self.listen_sock_v4 = self.create_listen_socket(socket.AF_INET, Main.Arguments.listen_ipv4)
             logging.debug("listening ipv4 socket is {0}".format(self.listen_sock_v4))
@@ -93,7 +81,19 @@ class Main:
             logging.debug("listening ipv6 socket set to non-blocking")
         if not self.listen_sock_v4 and not self.listen_sock_v6:
             raise Exception("No listening socket created")
-        # setup selector
+
+    def destroy_listen_sockets(self):
+        self.listen_selector = selectors.DefaultSelector()
+        if self.listen_sock_v4:
+            self.listen_sock_v4.shutdown(socket.SHUT_RDWR)
+            self.listen_sock_v4.close()
+            self.listen_sock_v4 = None
+        if self.listen_sock_v6:
+            self.listen_sock_v6.shutdown(socket.SHUT_RDWR)
+            self.listen_sock_v6.close()
+            self.listen_sock_v6 = None
+
+    def setup_selector(self):
         self.listen_selector = selectors.DefaultSelector()
         logging.debug("socket selector {0} created".format(self.listen_selector))
         if self.listen_sock_v4:
@@ -102,6 +102,45 @@ class Main:
         if self.listen_sock_v6:
             logging.debug("registering listening ipv6 socket into socket selector")
             self.listen_selector.register(self.listen_sock_v6, selectors.EVENT_READ, self.accept_incoming_connection)
+
+    def teardown_selector(self):
+        if self.listen_sock_v4:
+            logging.debug("unregistering listening ipv4 socket from socket selector")
+            self.listen_selector.unregister(self.listen_sock_v4)
+        if self.listen_sock_v6:
+            logging.debug("unregistering listening ipv6 socket from socket selector")
+            self.listen_selector.unregister(self.listen_sock_v6)
+        logging.debug("closing socket selector {0}".format(self.listen_selector))
+        self.listen_selector.close()
+
+    def accept_incoming_connection(self, fileobj, mask):
+        logging.debug("accepting incoming connection on socket {0}".format(fileobj))
+        client_sock, client_addr = fileobj.accept()
+        logging.info("client socket {0} connected from {1} using source port {2}".format(client_sock.fileno(), *client_addr))
+        ssl_client_sock = ssl.wrap_socket(client_sock,
+            keyfile=Main.Arguments.ssl_pem_key,
+            certfile=Main.Arguments.ssl_pem_cert,
+            server_side=True,
+            cert_reqs=ssl.CERT_NONE,
+            ciphers=Main.Arguments.ssl_ciphers)
+        logging.info("client socket {0} wrapped as SSL using version {1}, cipher {2} with {3} secret bits, and compression={4}".format(ssl_client_sock.fileno(), ssl_client_sock.version(), ssl_client_sock.cipher()[0], ssl_client_sock.cipher()[2], ssl_client_sock.compression()))
+        # spawning thread and adding it to master list
+        client_thread = imap.ImapThread(ssl_client_sock)
+        client_thread.name = "{0} port {1}".format(*client_addr)
+        with Main.ImapThreadsMutex:
+            Main.ImapThreads.append(client_thread)
+            logging.debug("thread {0} created, {1} threads running".format(client_thread, len(Main.ImapThreads)))
+            client_thread.start()
+
+    def cleanup_finished_threads(self):
+        with Main.ImapThreadsMutex:
+            for thread in Main.ImapThreads[:]: # iterate on a copy
+                if not thread.is_alive():
+                    thread.join()
+                    Main.ImapThreads.remove(thread)
+                    logging.debug("cleaned up thread {0}, {1} threads remain".format(thread, len(Main.ImapThreads)))
+
+    def poll_incoming_connections(self):
         # accept loop
         while not Main.RequestExit:
             # logging.debug("begin while")
@@ -114,23 +153,13 @@ class Main:
                 callback(key.fileobj, mask)
                 # logging.debug("end for")
             # logging.debug("end while")
-        # teardown selector
-        if self.listen_sock_v4:
-            logging.debug("unregistering listening ipv4 socket from socket selector")
-            self.listen_selector.unregister(self.listen_sock_v4)
-        if self.listen_sock_v6:
-            logging.debug("unregistering listening ipv6 socket from socket selector")
-            self.listen_selector.unregister(self.listen_sock_v6)
-        logging.debug("closing socket selector {0}".format(self.listen_selector))
-        self.listen_selector.close()
-        # close listening sockets
-        self.listen_selector = selectors.DefaultSelector()
-        if self.listen_sock_v4:
-            self.listen_sock_v4.shutdown(socket.SHUT_RDWR)
-            self.listen_sock_v4.close()
-            self.listen_sock_v4 = None
-        if self.listen_sock_v6:
-            self.listen_sock_v6.shutdown(socket.SHUT_RDWR)
-            self.listen_sock_v6.close()
-            self.listen_sock_v6 = None
+            self.cleanup_finished_threads()
+
+    def run(self):
+        logging.info("starting applicaiton")
+        self.create_listen_sockets()
+        self.setup_selector()
+        self.poll_incoming_connections()
+        self.teardown_selector()
+        self.destroy_listen_sockets()
         logging.info("terminating applicaiton")
