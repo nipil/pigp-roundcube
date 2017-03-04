@@ -21,7 +21,6 @@ class Main:
         self._imap_threads = []
         self._imap_threads_mutex = threading.Lock()
         self._listen_selector = None
-        self._listen_selector_mutex = threading.Lock()
         self._listen_sock_v4 = None
         self._listen_sock_v6 = None
         # signal handling
@@ -129,9 +128,11 @@ class Main:
             cert_reqs=ssl.CERT_NONE,
             ciphers=self._arguments.ssl_ciphers)
         logging.info("client socket {0} wrapped as SSL using version {1}, cipher {2} with {3} secret bits, and compression={4}".format(ssl_client_sock.fileno(), ssl_client_sock.version(), ssl_client_sock.cipher()[0], ssl_client_sock.cipher()[2], ssl_client_sock.compression()))
+        logging.debug("registering listening ipv4 socket into socket selector")
         # spawning thread and adding it to master list
         client_thread = imap.ImapThread(ssl_client_sock)
         client_thread.name = "{0} port {1}".format(*client_addr)
+        self._listen_selector.register(ssl_client_sock, selectors.EVENT_READ, client_thread.recv)
         with self._imap_threads_mutex:
             self._imap_threads.append(client_thread)
             logging.debug("thread {0} created, {1} threads running".format(client_thread, len(self._imap_threads)))
